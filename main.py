@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+import ssl
 
 app = FastAPI()
 
@@ -16,9 +17,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ MongoDB connection (sync version)
+# === MongoDB Connection (TLS 1.2) ===
 MONGO_URI = "mongodb+srv://phawitboo:tWtLjzg3r2RYmtty@cluster0.ljj8oii.mongodb.net/?retryWrites=true&w=majority"
-client = MongoClient(MONGO_URI)
+
+client = MongoClient(
+    MONGO_URI,
+    tls=True,
+    tlsAllowInvalidCertificates=False,
+    ssl_cert_reqs=ssl.CERT_REQUIRED,
+    ssl_version=ssl.PROTOCOL_TLSv1_2
+)
+
 db = client["users"]
 collection = db["profile"]
 
@@ -45,6 +54,6 @@ def update_user(data: UserUpdateModel = Body(...)):
 def get_user(line_id: str):
     document = collection.find_one({"line_id": line_id})
     if document:
-        document["_id"] = str(document["_id"])  # ObjectId → str for JSON
+        document["_id"] = str(document["_id"])  # ObjectId → str
         return document
     return {"error": "User not found"}
