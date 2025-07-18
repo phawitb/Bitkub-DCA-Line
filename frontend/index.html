@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bitkub DCA</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* styles are unchanged */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f2f5;
+      padding: 1rem;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background-color: #00b300;
+      padding: 1rem;
+      border-radius: 12px;
+      color: white;
+    }
+    #profile-pic {
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+    }
+    form {
+      margin-top: 1.5rem;
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    label {
+      display: block;
+      font-size: 0.95rem;
+      margin-top: 1rem;
+      margin-bottom: 0.25rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #fafafa;
+    }
+    .password-wrapper {
+      position: relative;
+    }
+    .toggle-eye {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      user-select: none;
+    }
+    button {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      background-color: #00b300;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #009900;
+    }
+    #status {
+      margin-top: 1rem;
+      text-align: center;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    section#history-section {
+      margin-top: 2rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #e0f7e0;
+    }
+    .no-history {
+      text-align: center;
+      font-style: italic;
+      color: gray;
+      margin-top: 0.5rem;
+    }
+    @media (max-width: 480px) {
+      body {
+        padding: 0.75rem;
+      }
+      form, #history-section {
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img id="profile-pic" src="" alt="Profile" />
+    <div>
+      <h3 id="display-name" style="margin: 0;">User Name</h3>
+    </div>
+  </header>
+
+  <form id="dca-form">
+    <label for="amount">💸 Amount (THB):</label>
+    <input type="number" id="amount" required />
+
+    <label for="time">🕒 DCA Time:</label>
+    <select id="time" required>
+      <option value="">-- Select Time --</option>
+    </select>
+
+    <label for="api_key">🔑 API_KEY:</label>
+    <div class="password-wrapper">
+      <input type="password" id="api_key" required />
+      <span class="toggle-eye" onclick="togglePassword('api_key')">👁️</span>
+    </div>
+
+    <label for="api_secret">🔐 API_SECRET:</label>
+    <div class="password-wrapper">
+      <input type="password" id="api_secret" required />
+      <span class="toggle-eye" onclick="togglePassword('api_secret')">👁️</span>
+    </div>
+
+    <button type="submit">Update</button>
+    <div id="status"></div>
+  </form>
+
+  <section id="history-section">
+    <h3>📊 DCA Order History</h3>
+    <p id="no-history" class="no-history" style="display: none;">No history yet.</p>
+    <canvas id="dca-chart" height="200" style="margin-bottom: 1rem;"></canvas>
+    <div style="overflow-x: auto;">
+      <table id="dca-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount (THB)</th>
+            <th>BTC Rate</th>
+            <th>Fee</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    const liffId = "2007743625-3LBpKvd5";
+    let apiBase = "";
+
+    function populateTimeOptions() {
+      const timeSelect = document.getElementById("time");
+      for (let hour = 0; hour <= 23; hour++) {
+        const h = hour.toString().padStart(2, "0");
+        const option = document.createElement("option");
+        option.value = `${h}:00`;
+        option.textContent = `${h}:00`;
+        timeSelect.appendChild(option);
+      }
+    }
+
+    function togglePassword(id) {
+      const input = document.getElementById(id);
+      input.type = input.type === "password" ? "text" : "password";
+    }
+
+    async function loadConfig() {
+      const res = await fetch("config.txt");
+      const text = await res.text();
+      const lines = text.split("\n");
+      for (const line of lines) {
+        const [key, value] = line.split("=");
+        if (key.trim() === "NGROK_URL") {
+          apiBase = value.trim();
+          break;
+        }
+      }
+    }
+
+    async function loadUserData(lineId) {
+      const url = `${apiBase}/user/get_user_data/${lineId}`;
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "ngrok-skip-browser-warning": "69420",
+            "Accept": "application/json"
+          }
+        });
+        const text = await res.text();
+        const user = JSON.parse(text);
+        document.getElementById("api_key").value = user.api_key || "";
+        document.getElementById("api_secret").value = user.api_secret || "";
+        document.getElementById("amount").value = user.dca_amount || "";
+        document.getElementById("time").value = user.time_dca || "";
+        document.getElementById("status").textContent = "";
+      } catch (err) {
+        document.getElementById("status").textContent = "❌ Error loading user data: " + err.message;
+      }
+    }
+
+    async function loadOrderHistory(lineId, sym = "btc_thb", p = 1, lmt = 30) {
+      const url = `${apiBase}/bitkub/order-history/${lineId}?sym=${sym}&p=${p}&lmt=${lmt}`;
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "ngrok-skip-browser-warning": "69420",
+            "Accept": "application/json"
+          }
+        });
+        const data = await res.json();
+        const noHistoryText = document.getElementById("no-history");
+        const chartEl = document.getElementById("dca-chart");
+        const tableEl = document.getElementById("dca-table");
+
+        if (data.error !== 0 || !data.result || data.result.length === 0) {
+          chartEl.style.display = "none";
+          tableEl.closest("div").style.display = "none";
+          noHistoryText.style.display = "block";
+          return;
+        }
+
+        noHistoryText.style.display = "none";
+        chartEl.style.display = "";
+        tableEl.closest("div").style.display = "";
+
+        const orders = data.result;
+        const tbody = tableEl.querySelector("tbody");
+        tbody.innerHTML = "";
+        orders.forEach(o => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${new Date(o.ts).toLocaleString()}</td>
+            <td>${o.amount}</td>
+            <td>${parseFloat(o.rate).toLocaleString()}</td>
+            <td>${o.fee}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        const labels = orders.map(o => new Date(o.ts).toLocaleDateString()).reverse();
+        const prices = orders.map(o => parseFloat(o.rate)).reverse();
+        const ctx = chartEl.getContext("2d");
+        if (window.dcaChart) window.dcaChart.destroy();
+        window.dcaChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [{
+              label: "BTC Rate",
+              data: prices,
+              borderColor: "#00b300",
+              fill: false,
+              tension: 0.2
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: false } }
+          }
+        });
+      } catch (err) {
+        document.getElementById("status").textContent = "❌ Chart load error: " + err.message;
+      }
+    }
+
+    async function main() {
+      await loadConfig();  // Load apiBase from config.txt
+      await liff.init({ liffId });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+      const profile = await liff.getProfile();
+      const lineId = profile.userId;
+
+      document.getElementById('profile-pic').src = profile.pictureUrl;
+      document.getElementById('display-name').textContent = profile.displayName;
+
+      await loadUserData(lineId);
+      await loadOrderHistory(lineId);
+
+      document.getElementById("dca-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+          line_id: lineId,
+          api_key: document.getElementById("api_key").value,
+          api_secret: document.getElementById("api_secret").value,
+          dca_amount: parseFloat(document.getElementById("amount").value),
+          time_dca: document.getElementById("time").value
+        };
+        const url = `${apiBase}/user/update_data`;
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const result = await res.text();
+          if (res.ok) {
+            document.getElementById("status").textContent = "✅ Update successful!";
+            await loadOrderHistory(lineId);
+          } else {
+            document.getElementById("status").textContent = "❌ Update failed: " + result;
+          }
+        } catch (err) {
+          document.getElementById("status").textContent = "❌ Submit error: " + err.message;
+        }
+      });
+    }
+
+    populateTimeOptions();
+    window.onload = main;
+  </script>
+</body>
+</html>
