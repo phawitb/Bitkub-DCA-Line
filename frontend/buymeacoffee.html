@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Buy Me a Coffee ☕</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #fffdf1;
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      background-color: #ffe066;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      color: #333;
+      font-size: 1.8rem;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .content {
+      width: 100%;
+      max-width: 480px;
+      padding: 1.5rem 1rem;
+      box-sizing: border-box;
+    }
+
+    .tabs {
+      display: flex;
+      border: 1px solid #e0c500;
+      border-radius: 8px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem;
+      background: #fff1aa;
+      font-weight: bold;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-size: 1rem;
+      border-right: 1px solid #e0c500;
+    }
+
+    .tab:last-child {
+      border-right: none;
+    }
+
+    .tab.active {
+      background: #f0cd46;
+    }
+
+    .wallet-box {
+      background: #fff1aa;
+      padding: 1rem 1rem 0.8rem 1rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      color: #111;
+      font-weight: 500;
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      word-break: break-word;
+    }
+
+    .wallet-box div#wallet {
+      align-self: flex-start;
+      width: 100%;
+      word-wrap: break-word;
+      word-break: break-word;
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.2s ease;
+    }
+
+    .copy-btn svg {
+      margin-right: 4px;
+    }
+
+    .copy-btn:hover {
+      background: rgba(0,0,0,0.05);
+      color: #000;
+    }
+
+    #qrcode, #qrimage {
+      margin-top: 2rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    #qrimage img {
+      max-width: 220px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .footer {
+      margin-top: 3rem;
+      font-size: 0.9rem;
+      color: #555;
+      text-align: center;
+    }
+
+    hr.divider {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 1.5rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <!-- Buy Me a Coffee ☕ -->
+     Support Me
+  </header>
+
+  <div class="content">
+    <div class="tabs">
+      <div class="tab active" onclick="selectOption('USDT')">USDT</div>
+      <div class="tab" onclick="selectOption('BTC')">BTC</div>
+      <div class="tab" onclick="selectOption('PROMPTPAY')">PromptPay</div>
+    </div>
+
+    <hr class="divider" />
+
+    <div id="walletBox" class="wallet-box">
+      <button class="copy-btn" onclick="copyAddress()" title="Copy address">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+          viewBox="0 0 24 24">
+          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
+        </svg>
+        Copy
+      </button>
+      <div id="wallet">0x3ba63fB6433269435e64c1aa08e3e7293Cce3091</div>
+    </div>
+
+    <div id="qrcode"><canvas></canvas></div>
+    <div id="qrimage" style="display: none;">
+      <img src="prompay_qr.jpg" alt="PromptPay QR Code">
+    </div>
+
+    <div class="footer">
+      Thank you for your support! 🙏
+    </div>
+  </div>
+
+  <script>
+    const wallets = {
+      USDT: "0x3ba63fB6433269435e64c1aa08e3e7293Cce3091",
+      BTC: "bc1qsz0cljfc445cp7s4c5grul6s8790l0fvw2p0w4",
+      PROMPTPAY: "0805471749"
+    };
+
+    const displayNames = {
+      USDT: "USDT Wallet (Bitkub)",
+      BTC: "Bitcoin Wallet",
+      PROMPTPAY: "PromptPay (Phone)"
+    };
+
+    let currentOption = "USDT";
+
+    function copyAddress() {
+      const address = wallets[currentOption];
+      navigator.clipboard.writeText(address)
+        .then(() => alert(displayNames[currentOption] + " copied!"))
+        .catch(() => alert("Failed to copy"));
+    }
+
+    function updateQR(address) {
+      const qrCanvas = document.getElementById('qrcode');
+      const qrImage = document.getElementById('qrimage');
+      const walletBox = document.getElementById('walletBox');
+      const canvas = qrCanvas.querySelector('canvas');
+
+      if (currentOption === 'PROMPTPAY') {
+        qrCanvas.style.display = 'none';
+        qrImage.style.display = 'flex';
+        walletBox.style.display = 'none';
+      } else {
+        qrCanvas.style.display = 'flex';
+        qrImage.style.display = 'none';
+        walletBox.style.display = 'flex';
+
+        QRCode.toCanvas(canvas, address, {
+          width: 220,
+          margin: 1,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          }
+        }, function (error) {
+          if (error) console.error(error);
+        });
+      }
+    }
+
+    function selectOption(option) {
+      currentOption = option;
+
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.textContent.toUpperCase().includes(option)) {
+          tab.classList.add('active');
+        }
+      });
+
+      document.getElementById('wallet').textContent = wallets[option];
+      updateQR(wallets[option]);
+    }
+
+    window.onload = () => {
+      selectOption(currentOption);
+    };
+  </script>
+</body>
+</html>

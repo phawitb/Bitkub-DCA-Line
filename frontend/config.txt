@@ -1,1 +1,1 @@
-NGROK_URL=https://62b268825bde.ngrok-free.app
+NGROK_URL=https://7e3d82306dd1.ngrok-free.app

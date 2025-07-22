@@ -3,31 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Bitkub DCA</title>
+  <title>Bitcoin DCA</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* styles are unchanged */
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f0f2f5;
+      background-color: #fff8e1;
       padding: 1rem;
     }
     header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 1rem;
-      background-color: #00b300;
+      background-color: #ffeb3b;
       padding: 1rem;
       border-radius: 12px;
-      color: white;
+      color: #333;
     }
     #profile-pic {
       border-radius: 50%;
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
     }
     form {
       margin-top: 1.5rem;
@@ -51,33 +50,22 @@
       font-size: 1rem;
       border: 1px solid #ddd;
       border-radius: 8px;
-      background-color: #fafafa;
-    }
-    .password-wrapper {
-      position: relative;
-    }
-    .toggle-eye {
-      position: absolute;
-      right: 10px;
-      top: 10px;
-      cursor: pointer;
-      font-size: 1.1rem;
-      user-select: none;
+      background-color: #fffde7;
     }
     button {
       margin-top: 1.5rem;
       width: 100%;
       padding: 0.75rem;
       font-size: 1rem;
-      background-color: #00b300;
-      color: white;
+      background-color: #ffeb3b;
+      color: #333;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       transition: background-color 0.3s;
     }
     button:hover {
-      background-color: #009900;
+      background-color: #fbc02d;
     }
     #status {
       margin-top: 1rem;
@@ -90,19 +78,28 @@
       max-width: 600px;
       margin-left: auto;
       margin-right: auto;
+      background: white;
+      padding: 1rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    canvas {
+      border-radius: 8px;
+      background: #fffef3;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       background: white;
+      font-size: 0.85rem;
     }
     th, td {
-      padding: 8px;
+      padding: 6px;
       text-align: left;
       border-bottom: 1px solid #ddd;
     }
     th {
-      background-color: #e0f7e0;
+      background-color: #fff9c4;
     }
     .no-history {
       text-align: center;
@@ -122,10 +119,8 @@
 </head>
 <body>
   <header>
+    <div><h3 style="margin: 0;">Bitcoin DCA</h3></div>
     <img id="profile-pic" src="" alt="Profile" />
-    <div>
-      <h3 id="display-name" style="margin: 0;">User Name</h3>
-    </div>
   </header>
 
   <form id="dca-form">
@@ -139,14 +134,12 @@
 
     <label for="api_key">🔑 API_KEY:</label>
     <div class="password-wrapper">
-      <input type="password" id="api_key" required />
-      <span class="toggle-eye" onclick="togglePassword('api_key')">👁️</span>
+      <input type="password" id="api_key" placeholder="Hidden for security" />
     </div>
 
     <label for="api_secret">🔐 API_SECRET:</label>
     <div class="password-wrapper">
-      <input type="password" id="api_secret" required />
-      <span class="toggle-eye" onclick="togglePassword('api_secret')">👁️</span>
+      <input type="password" id="api_secret" placeholder="Hidden for security" />
     </div>
 
     <button type="submit">Update</button>
@@ -187,9 +180,10 @@
       }
     }
 
-    function togglePassword(id) {
-      const input = document.getElementById(id);
-      input.type = input.type === "password" ? "text" : "password";
+    function formatMillions(n) {
+      if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+      if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
+      return n.toString();
     }
 
     async function loadConfig() {
@@ -216,8 +210,6 @@
         });
         const text = await res.text();
         const user = JSON.parse(text);
-        document.getElementById("api_key").value = user.api_key || "";
-        document.getElementById("api_secret").value = user.api_secret || "";
         document.getElementById("amount").value = user.dca_amount || "";
         document.getElementById("time").value = user.time_dca || "";
         document.getElementById("status").textContent = "";
@@ -259,7 +251,7 @@
           row.innerHTML = `
             <td>${new Date(o.ts).toLocaleString()}</td>
             <td>${o.amount}</td>
-            <td>${parseFloat(o.rate).toLocaleString()}</td>
+            <td>${formatMillions(parseFloat(o.rate))}</td>
             <td>${o.fee}</td>
           `;
           tbody.appendChild(row);
@@ -276,14 +268,23 @@
             datasets: [{
               label: "BTC Rate",
               data: prices,
-              borderColor: "#00b300",
+              borderColor: "#ffc107",
               fill: false,
               tension: 0.2
             }]
           },
           options: {
             responsive: true,
-            scales: { y: { beginAtZero: false } }
+            scales: {
+              y: {
+                beginAtZero: false,
+                ticks: {
+                  callback: function(value) {
+                    return formatMillions(value);
+                  }
+                }
+              }
+            }
           }
         });
       } catch (err) {
@@ -292,17 +293,17 @@
     }
 
     async function main() {
-      await loadConfig();  // Load apiBase from config.txt
+      await loadConfig();
       await liff.init({ liffId });
       if (!liff.isLoggedIn()) {
         liff.login();
         return;
       }
+
       const profile = await liff.getProfile();
       const lineId = profile.userId;
 
       document.getElementById('profile-pic').src = profile.pictureUrl;
-      document.getElementById('display-name').textContent = profile.displayName;
 
       await loadUserData(lineId);
       await loadOrderHistory(lineId);
